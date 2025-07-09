@@ -30,7 +30,7 @@ jobs:
   
   compile:
     runs-on: self-hosted
-    needs: quality-gate
+    needs: sonar
     
     steps:
     - uses: actions/checkout@v4
