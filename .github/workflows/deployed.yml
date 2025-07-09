@@ -18,12 +18,51 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-  
-  compile:
+
+  quality-gate:
     runs-on: self-hosted
     needs: sonar
     
     steps:
     - uses: actions/checkout@v4
+    - name: SonarQube Quality Gate check
+      id: sonarqube-quality-gate-check
+      uses: sonarsource/sonarqube-quality-gate-action@master
+      with:
+         pollingTimeoutSec: 600
+      env:
+         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+         SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  
+  compile:
+    runs-on: self-hosted
+    needs: quality-gate
+    
+    steps:
+    - uses: actions/checkout@v4
     - name: Compile
       run: npm install
+
+  test:
+    runs-on: self-hosted
+    needs: compile
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Test 
+      run: npm test
+
+  trivy:
+    runs-on: self-hosted
+    needs: compile
+    
+    steps:
+    - uses: actions/checkout@v4
+    - name: Trivy file scan 
+      run: trivy fs . > trivyfs.txt
+
+
+
+
+
+      
