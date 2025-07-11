@@ -65,18 +65,36 @@ jobs:
       with:
         username: ${{ vars.DOCKERHUB_USERNAME }}
         password: ${{ secrets.DOCKERHUB_TOKEN }}
+    - name: Docker meta
+      id: docker_meta
+      uses: docker/metadata-action@v5
+      with:
+        images: duybo95/tic-tac-toe-github-action
+        flavor: |
+          latest=false
+        tags: |
+          type=raw,value=04
+          type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
+          type=ref,event=pr
+          type=ref,event=branch
+          type=semver,pattern={{version}}
+            
     - name: Set up QEMU
       uses: docker/setup-qemu-action@v3
+      
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
+      
     - name: Build and Push Docker image
       uses: docker/build-push-action@v6
       with:
         context: .
         push: true
-        tags: |
-          duybo95/tic-tac-toe-github-action:latest
-          duybo95/tic-tac-toe-github-action:${{ github.run_number }}
+        # tags: |
+        #   duybo95/tic-tac-toe-github-action:latest
+        #   duybo95/tic-tac-toe-github-action:${{ github.run_number }}
+        tags: ${{ steps.docker_meta.outputs.tags }}
+        labels: ${{ steps.docker_meta.outputs.labels }}
         file: ./Dockerfile
         cache-from: type=gha
         cache-to: type=gha,mode=max
