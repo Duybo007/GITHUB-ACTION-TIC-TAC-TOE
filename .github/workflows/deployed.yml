@@ -78,6 +78,8 @@ jobs:
           duybo95/tic-tac-toe-github-action:latest
           duybo95/tic-tac-toe-github-action:${{ github.run_number }}
         file: ./Dockerfile
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
   slack:
     runs-on: self-hosted
