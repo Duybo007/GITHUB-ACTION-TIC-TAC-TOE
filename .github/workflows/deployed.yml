@@ -56,45 +56,66 @@ jobs:
     - name: Trivy file scan 
       run: trivy fs . > trivyfs.txt
 
-  docker:
+  docker-build:
     runs-on: self-hosted
     needs: trivy
-
+    outputs:
+      image_tag: ${{ steps.docker_meta.outputs.tags }}
     permissions:
-      contents: read # for actions/checkout to fetch code
-      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
-    
+      contents: read
+      security-events: write
+
     steps:
-    - name: Set up QEMU
-      uses: docker/setup-qemu-action@v3
-      
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-      with:
-        driver: docker-container
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
-      with:
-        username: ${{ vars.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
 
-    - name: Build and export to Docker
-      uses: docker/build-push-action@v6
-      with:
-        push: false
-        load: true # Export to Docker Engine rather than pushing to a registry
-        tags: ${{ github.run_id }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Run Trivy for all CVEs (non-blocking)
-      uses: aquasecurity/trivy-action@master
-      with:
-        image-ref: ${{ github.run_id }}
-        exit-code: 0
-        format: table
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@v5
+        with:
+          images: duybo95/tic-tac-toe-github-action
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=04
+            type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
+            type=ref,event=pr
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+
+      - name: Build and Push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          file: ./Dockerfile
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+
+  docker-trivy-scan:
+    runs-on: self-hosted
+    needs: docker-build
+    steps:
+      - name: Run Trivy scan on built image (non-blocking)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ github.run_id }}
+          exit-code: 0
+          format: table
 
     # - name: Run Trivy for HIGH,CRITICAL CVEs and report (blocking)
     #   uses: aquasecurity/trivy-action@master
@@ -113,34 +134,7 @@ jobs:
     #   with:
     #     sarif_file: 'trivy-results.sarif'
         
-    - name: Docker meta
-      id: docker_meta
-      uses: docker/metadata-action@v5
-      with:
-        images: duybo95/tic-tac-toe-github-action
-        flavor: |
-          latest=false
-        tags: |
-          type=raw,value=04
-          type=raw,value=latest,enable=${{ endsWith(github.ref, github.event.repository.default_branch) }}
-          type=ref,event=pr
-          type=ref,event=branch
-          type=semver,pattern={{version}}
-                  
-    - name: Build and Push Docker image
-      uses: docker/build-push-action@v6
-      with:
-        context: .
-        push: true
-        # tags: |
-        #   duybo95/tic-tac-toe-github-action:latest
-        #   duybo95/tic-tac-toe-github-action:${{ github.run_number }}
-        tags: ${{ steps.docker_meta.outputs.tags }}
-        labels: ${{ steps.docker_meta.outputs.labels }}
-        file: ./Dockerfile
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
-        platforms: linux/amd64,linux/arm64,linux/arm/v7
+
 
   slack:
     runs-on: self-hosted
