@@ -157,3 +157,20 @@ jobs:
         channel: '#all-devops'
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  cleanup:
+    runs-on: self-hosted
+    needs: [sonar, compile, trivy, docker, slack]
+    if: always()  # Ensures cleanup runs even if previous jobs fail
+    steps:
+      - name: Cleanup workspace
+        run: |
+          echo "Cleaning workspace..."
+          rm -rf ${{ github.workspace }}/*
+
+          echo "Removing unused Docker images and cache..."
+          docker image prune -a -f
+          docker builder prune -a -f
+
+          echo "Removing Trivy cache (if any)..."
+          rm -rf ~/.cache/trivy
