@@ -138,7 +138,7 @@ jobs:
 
   slack:
     runs-on: self-hosted
-    needs: docker
+    needs: docker-build
     
     steps:
     - uses: actions/checkout@v4
@@ -154,7 +154,7 @@ jobs:
 
   cleanup:
     runs-on: self-hosted
-    needs: [sonar, compile, trivy, docker, slack]
+    needs: [sonar, compile, trivy, docker-build, slack]
     if: always()  # Ensures cleanup runs even if previous jobs fail
     steps:
       - name: Cleanup workspace
